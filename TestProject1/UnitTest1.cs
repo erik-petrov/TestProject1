@@ -1,7 +1,10 @@
+using NUnit.Framework;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Chrome;
 using OpenQA.Selenium.Interactions;
 using OpenQA.Selenium.Support.UI;
+using System;
+using System.Collections.Generic;
 
 namespace TestProject1
 {
@@ -9,13 +12,15 @@ namespace TestProject1
     {
         protected IWebDriver dr;
         protected Random rnd;
+        private static readonly log4net.ILog
+            log = log4net.LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
         [SetUp]
         public void Setup()
         {
             var opt = new ChromeOptions();
             opt.AddArgument("window-position=-2000,0");
             opt.AddArgument("--disable-notifications");
-            dr = new ChromeDriver(@"C:\Users\kotem\source\repos\TestProject1\", opt);
+            dr = new ChromeDriver(@"C:\Users\opilane\Source\Repos\TestProject1\", opt);
             dr.Manage().Window.Maximize();
         }
         [TearDown]
@@ -26,9 +31,21 @@ namespace TestProject1
         [Test]
         public void Comparison()
         {
+            List<string> items = new List<string>();
+            List<IWebElement> buttons = new List<IWebElement>();
+            List<string> comparing = new List<string>();
             dr.Manage().Window.Maximize();
             dr.Navigate().GoToUrl("https://hgdft53.frog.ee/en/1615/pc-components");
-            var buttons = dr.FindElements(By.ClassName("add_to_compare"));
+            var products = dr.FindElements(By.ClassName("ajax_block_product"));
+            int count = 0;
+            foreach (var item in products)
+            {
+                if (count == 4)
+                    break;
+                buttons.Add(item.FindElements(By.ClassName("add_to_compare"))[0]);
+                items.Add(item.FindElement(By.ClassName("product-name")).GetAttribute("title"));
+                count++;
+            }
             int pressed = 0;
             for (int i = 0; i < buttons.Count; i++)
             {
@@ -36,13 +53,45 @@ namespace TestProject1
                     break;
                 if (buttons[i].Displayed)
                 {
+                    WebDriverWait wait = new WebDriverWait(dr, TimeSpan.FromSeconds(10));
                     buttons[i].Click();
                     pressed++;
+                    wait.Until((d) =>
+                    {
+                        if(dr.FindElements(By.CssSelector("a.add_to_compare.checked")).Count == pressed)
+                        {
+                            return dr;
+                        }
+                        return null;
+                    });
+                    
                 }
                 dr.Manage().Timeouts().ImplicitWait = TimeSpan.FromSeconds(5);
             }
             new WebDriverWait(dr, TimeSpan.FromSeconds(10));
             dr.FindElement(By.ClassName("bt_compare")).Click();
+            foreach (var item in dr.FindElements(By.ClassName("ajax_block_product")))
+            {
+                try
+                {
+                    string itemName = item.FindElement(By.ClassName("product-name")).GetAttribute("title");
+                    if (items.Contains(itemName))
+                    {
+                        items.Remove(itemName);
+                    }
+                }
+                catch (Exception e)
+                {
+                    log.Error(e.Message);
+                }
+            }
+            if (items.Count == 0)
+                log.Info("Successfully added to comparison");
+            //deleting
+            foreach (var item in dr.FindElements(By.ClassName("ajax_block_product")))
+            {
+                
+            }
         }
         [Test]
         public void Reg()
